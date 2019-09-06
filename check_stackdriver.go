@@ -15,14 +15,14 @@ import (
 
 type Options struct {
 	Project   string  `short:"g" long:"project"   required:"true"  description:"GCP project id." `
-	Auth      string  `short:"a" long:"auth"      required:"true"  description:"GCP authenticate key." `
+	Auth      string  `short:"a" long:"auth"      required:"true"  default:"~/gcp_auth_key.json" description:"GCP authenticate key." `
     Metric    string  `short:"m" long:"metric"    required:"true"  description:"Monitoring metric." `
-	Delay     int64   `short:"d" long:"delay"     required:"false" description:"Shift the acquisition period." `
-	Period    int64   `short:"p" long:"period"    required:"false" description:"Metric acquisition period." `
-  	Evalution string  `short:"e" long:"evalution" required:"false" description:"Metric evalute type." `
-	Critical  float64 `short:"c" long:"critical"  required:"false" description:"Critical threshold."`
-  	Warning   float64 `short:"w" long:"warning"   required:"false" description:"Warning threshold." `
-	Verbose   bool    `short:"v" long:"verbose"   required:"false" description:"Verbose option."    `
+	Delay     int64   `short:"d" long:"delay"     required:"false" default:"4" description:"Shift the acquisition period." `
+	Period    int64   `short:"p" long:"period"    required:"false" default:"5" description:"Metric acquisition period." `
+  	Evalution string  `short:"e" long:"evalution" required:"false" default:"MAX" description:"Metric evalute type." `
+	Critical  float64 `short:"c" long:"critical"  required:"false" default:"0.0" description:"Critical threshold." `
+  	Warning   float64 `short:"w" long:"warning"   required:"false" default:"0.0" description:"Warning threshold." `
+	Verbose   []bool  `short:"v" long:"verbose"   required:"false" description:"Verbose option." `
 }
 
 func main() {
@@ -33,10 +33,10 @@ func main() {
     if err != nil {
         parser.WriteHelp(os.Stdout)
         output(UNKNOWN, "Missing required arguments.")
-  	}
+	} 
 	verbose(opts.Verbose, opts)
 	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", opts.Auth)
-
+	
 	ctx := context.Background()
 	c, err := monitoring.NewMetricClient(ctx)
 	if err != nil {
@@ -81,10 +81,10 @@ func main() {
 	status  := OK
 	message := ""
 	switch { 
-	case (value >= opts.Critical) :
+	case (opts.Critical > 0.0 && value >= opts.Critical) :
 		status  = CRITICAL
 		message = fmt.Sprintf("evalute %s value %d over %d", opts.Evalution, int(value), int(opts.Critical))
-	case (value >= opts.Warning) :
+	case (opts.Warning > 0.0 && value >= opts.Warning) :
 		status  = WARNING
 		message = fmt.Sprintf("evalute %s value %d over %d", opts.Evalution, int(value), int(opts.Warning))
 	default :
@@ -151,8 +151,11 @@ func getFloatValue(valueType string, typedValue *monitoringpb.TypedValue) float6
 	return ret
 }
 
-func verbose(flag bool, value interface{}) {
-	if flag {
+func verbose(flag []bool, value interface{}) {
+	if (len(flag) == 0) {
+		return
+	} 
+	if flag[0] {
 		fmt.Println(value)
 	}
 }

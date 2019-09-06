@@ -22,7 +22,7 @@ Arguments
 option|long option|required|discription
 ---|---|---|---
 -g|--project|true|GCP project id.
--a|--auth|true|GCP authenticate key.
+-a|--auth|false|GCP authenticate key.
 -m|--metric|true|Monitoring metric.
 -d|--delay|false|Shift the acquisition period.
 -p|--period|flase|Metric acquisition period.
@@ -34,6 +34,5 @@ option|long option|required|discription
 https://cloud.google.com/monitoring/api/metrics?hl=ja
 
 # TODO
-[] support non required option's default value.
 [] append evalution type "MEAN".
 [] append "filter" option.
