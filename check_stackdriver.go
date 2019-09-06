@@ -118,7 +118,6 @@ func evalute(evaluteType string, valueType string, points []*monitoringpb.Point)
 	var ret float64
 	switch evaluteType {
 	case "LAST" :
-		verbose(true, valueType)
 		ret = getFloatValue(valueType, points[0].GetValue())
 	case "SUM" : 
 		for _, point := range points {
