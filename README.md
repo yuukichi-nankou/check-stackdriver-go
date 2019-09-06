@@ -20,14 +20,14 @@ Sample command
 Arguments  
 |option|long option|required|discription|
 |---|---|---|---|
-|-g|--project  |true |GCP project id.|
-|-a|--auth     |true |GCP authenticate key.|
-|-m|--metric   |true |Monitoring metric.|
-|-d|--delay    |false|Shift the acquisition period.|
-|-p|--period   |flase|Metric acquisition period.|
+|-g|--project|true|GCP project id.|
+|-a|--auth|true|GCP authenticate key.|
+|-m|--metric|true|Monitoring metric.|
+|-d|--delay|false|Shift the acquisition period.|
+|-p|--period|flase|Metric acquisition period.|
 |-e|--evalution|false|Metric evalute type.|
-|-w|--warning  |false|Warning threshold.|
-|-c|--critical |flase|Critical threshold.|
+|-w|--warning|false|Warning threshold.|
+|-c|--critical|flase|Critical threshold.|
 
 # Stack driver metric list
 https://cloud.google.com/monitoring/api/metrics?hl=ja
