@@ -17,7 +17,7 @@ Sample command
 -p 300 -d 240 -e 'LAST' -w 50000 -c 100000
 ```
 
-Arguments
+Arguments  
 |option|long option|required|discription|
 |---|---|---|---|
 |-g|--project  |true |GCP project id.|
@@ -33,5 +33,6 @@ Arguments
 https://cloud.google.com/monitoring/api/metrics?hl=ja
 
 # TODO
+[] support non required option's default value.
 [] append evalution type "MEAN".
 [] append "filter" option.
