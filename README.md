@@ -24,9 +24,9 @@ option|long option|required|discription
 -g|--project|true|GCP project id.
 -a|--auth|false|GCP authenticate key.
 -m|--metric|true|Monitoring metric.
--d|--delay|false|Shift the acquisition period.
--p|--period|flase|Metric acquisition period.
--e|--evalution|false|Metric evalute type.
+-d|--delay|false|Shift the acquisition period. (min)
+-p|--period|flase|Metric acquisition period. (min)
+-e|--evalution|false|Metric evalute type. ("MAX", "LAST", "SUM")
 -w|--warning|false|Warning threshold.
 -c|--critical|flase|Critical threshold.
 
@@ -34,5 +34,5 @@ option|long option|required|discription
 https://cloud.google.com/monitoring/api/metrics?hl=ja
 
 # TODO
-[] append evalution type "MEAN".
-[] append "filter" option.
+[] append evalution type "MEAN".  
+[] append "filter" option.  
