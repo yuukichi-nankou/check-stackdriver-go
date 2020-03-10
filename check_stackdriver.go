@@ -1,15 +1,17 @@
 package main
 
 import (
-	"os"
 	"fmt"
+	"os"
+
 	//"strconv"
-	flags "github.com/jessevdk/go-flags"
 	"time"
-	"google.golang.org/api/iterator"
-	"golang.org/x/net/context"
+
 	monitoring "cloud.google.com/go/monitoring/apiv3"
 	googlepb "github.com/golang/protobuf/ptypes/timestamp"
+	flags "github.com/jessevdk/go-flags"
+	"golang.org/x/net/context"
+	"google.golang.org/api/iterator"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 )
 
@@ -20,30 +22,30 @@ type Options struct {
 	Filter    string  `short:"f" long:"filter"    required:"false" default:""    description:"Filter query." `
 	Delay     int64   `short:"d" long:"delay"     required:"false" default:"4"   description:"Shift the acquisition period." `
 	Period    int64   `short:"p" long:"period"    required:"false" default:"5"   description:"Metric acquisition period." `
-  	Evalution string  `short:"e" long:"evalution" required:"false" default:"MAX" description:"Metric evaluate type." `
+	Evalution string  `short:"e" long:"evalution" required:"false" default:"MAX" description:"Metric evaluate type." `
 	Critical  float64 `short:"c" long:"critical"  required:"false" default:"0.0" description:"Critical threshold." `
-  	Warning   float64 `short:"w" long:"warning"   required:"false" default:"0.0" description:"Warning threshold." `
+	Warning   float64 `short:"w" long:"warning"   required:"false" default:"0.0" description:"Warning threshold." `
 	Verbose   []bool  `short:"v" long:"verbose"   required:"false" description:"Verbose option." `
 }
 
 func main() {
-    // 引数解析処理
-    var opts Options
-  	parser := flags.NewParser(&opts, flags.IgnoreUnknown)
-  	_, err := parser.Parse()
-    if err != nil {
-        parser.WriteHelp(os.Stdout)
-        output(UNKNOWN, "Missing required arguments.")
-	} 
+	// 引数解析処理
+	var opts Options
+	parser := flags.NewParser(&opts, flags.IgnoreUnknown)
+	_, err := parser.Parse()
+	if err != nil {
+		parser.WriteHelp(os.Stdout)
+		output(UNKNOWN, "Missing required arguments.")
+	}
 	verbose(opts.Verbose, opts)
 	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", opts.Auth)
-	
+
 	ctx := context.Background()
 	c, err := monitoring.NewMetricClient(ctx)
 	if err != nil {
 		output(UNKNOWN, "GCP SDK Client request failed.")
 	}
-	
+
 	var filter string = fmt.Sprintf("metric.type = \"%s\" ", opts.Metric)
 	if len(opts.Filter) != 0 {
 		filter += fmt.Sprintf("AND %s ", opts.Filter)
@@ -52,8 +54,8 @@ func main() {
 
 	unixNow := time.Now().Unix()
 	req := &monitoringpb.ListTimeSeriesRequest{
-		Name : "projects/" + opts.Project,
-		Filter : filter,
+		Name:   "projects/" + opts.Project,
+		Filter: filter,
 		Interval: &monitoringpb.TimeInterval{
 			EndTime: &googlepb.Timestamp{
 				Seconds: unixNow - (opts.Delay * 60),
@@ -83,41 +85,46 @@ func main() {
 		length = len(resp.Points)
 	}
 
-	if (length == 0) {
+	if length == 0 {
 		output(UNKNOWN, "Time series is empty.")
 	}
 
-	status  := OK
+	status := OK
 	message := ""
-	switch { 
-	case (opts.Critical > 0.0 && value >= opts.Critical) :
-		status  = CRITICAL
+	switch {
+	case (opts.Critical > 0.0 && value >= opts.Critical):
+		status = CRITICAL
 		message = fmt.Sprintf("%s value: %d over %d", opts.Evalution, int(value), int(opts.Critical))
-	case (opts.Warning > 0.0 && value >= opts.Warning) :
-		status  = WARNING
+	case (opts.Warning > 0.0 && value >= opts.Warning):
+		status = WARNING
 		message = fmt.Sprintf("%s value: %d over %d", opts.Evalution, int(value), int(opts.Warning))
-	default :
-		status  = OK
+	default:
+		status = OK
 		message = fmt.Sprintf("%s value: %d ", opts.Evalution, int(value))
 	}
 	paformace := fmt.Sprintf("|value=%f;%d;%d", value, int(opts.Warning), int(opts.Critical))
-	output(status, message + paformace)
+	output(status, message+paformace)
 }
 
 const (
-    OK = iota 
-    WARNING
+	OK = iota
+	WARNING
 	CRITICAL
 	UNKNOWN
 )
 
-func output(status int, message string)  {
+func output(status int, message string) {
 	switch status {
-	case OK      : message = "OK - " + message
-	case WARNING : message = "WARNING - " + message
-	case CRITICAL: message = "CRITICAL - " + message
-	case UNKNOWN : message = "UNKNOWN - " + message
-	default      : message = "UNKNOWN - " + message
+	case OK:
+		message = "OK - " + message
+	case WARNING:
+		message = "WARNING - " + message
+	case CRITICAL:
+		message = "CRITICAL - " + message
+	case UNKNOWN:
+		message = "UNKNOWN - " + message
+	default:
+		message = "UNKNOWN - " + message
 	}
 	fmt.Println(message)
 	os.Exit(status)
@@ -126,17 +133,17 @@ func output(status int, message string)  {
 func evaluate(evaluateType string, valueType string, points []*monitoringpb.Point) float64 {
 	var ret float64
 	switch evaluateType {
-	case "LAST" :
+	case "LAST":
 		ret = getFloatValue(valueType, points[0].GetValue())
-	case "SUM" : 
+	case "SUM":
 		for _, point := range points {
 			ret += getFloatValue(valueType, point.GetValue())
 		}
-	case "MAX" :
+	case "MAX":
 		var current float64
 		for _, point := range points {
 			current = getFloatValue(valueType, point.GetValue())
-			if (current < ret) {
+			if current < ret {
 				continue
 			}
 			ret = current
@@ -148,22 +155,22 @@ func evaluate(evaluateType string, valueType string, points []*monitoringpb.Poin
 func getFloatValue(valueType string, typedValue *monitoringpb.TypedValue) float64 {
 	var ret float64
 	switch valueType {
-	case "INT64" : 
+	case "INT64":
 		ret = float64(typedValue.GetInt64Value())
-	case "DOUBLE" :
+	case "DOUBLE":
 		ret = typedValue.GetDoubleValue()
-	case "DISTRIBUTION" :
+	case "DISTRIBUTION":
 		ret = typedValue.GetDistributionValue().GetMean()
-	default :
+	default:
 		// Expected "BOOL" "STRING" "MONEY", these cases are unsupported.
 	}
 	return ret
 }
 
 func verbose(flag []bool, value interface{}) {
-	if (len(flag) == 0) {
+	if len(flag) == 0 {
 		return
-	} 
+	}
 	if flag[0] {
 		fmt.Println(value)
 	}
