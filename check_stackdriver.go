@@ -16,10 +16,11 @@ import (
 type Options struct {
 	Project   string  `short:"g" long:"project"   required:"true"  description:"GCP project id." `
 	Auth      string  `short:"a" long:"auth"      required:"true"  default:"~/gcp_auth_key.json" description:"GCP authenticate key." `
-    Metric    string  `short:"m" long:"metric"    required:"true"  description:"Monitoring metric." `
-	Delay     int64   `short:"d" long:"delay"     required:"false" default:"4" description:"Shift the acquisition period." `
-	Period    int64   `short:"p" long:"period"    required:"false" default:"5" description:"Metric acquisition period." `
-  	Evalution string  `short:"e" long:"evalution" required:"false" default:"MAX" description:"Metric evalute type." `
+	Metric    string  `short:"m" long:"metric"    required:"true"  description:"Monitoring metric." `
+	Filter    string  `short:"f" long:"filter"    required:"false" default:""    description:"Filter query." `
+	Delay     int64   `short:"d" long:"delay"     required:"false" default:"4"   description:"Shift the acquisition period." `
+	Period    int64   `short:"p" long:"period"    required:"false" default:"5"   description:"Metric acquisition period." `
+  	Evalution string  `short:"e" long:"evalution" required:"false" default:"MAX" description:"Metric evaluate type." `
 	Critical  float64 `short:"c" long:"critical"  required:"false" default:"0.0" description:"Critical threshold." `
   	Warning   float64 `short:"w" long:"warning"   required:"false" default:"0.0" description:"Warning threshold." `
 	Verbose   []bool  `short:"v" long:"verbose"   required:"false" description:"Verbose option." `
@@ -43,7 +44,11 @@ func main() {
 		output(UNKNOWN, "GCP SDK Client request failed.")
 	}
 	
-	var filter string = fmt.Sprintf("metric.type = \"%s\"", opts.Metric)
+	var filter string = fmt.Sprintf("metric.type = \"%s\" ", opts.Metric)
+	if len(opts.Filter) != 0 {
+		filter += fmt.Sprintf("AND %s ", opts.Filter)
+	}
+	verbose(opts.Verbose, filter)
 
 	unixNow := time.Now().Unix()
 	req := &monitoringpb.ListTimeSeriesRequest{
@@ -68,9 +73,13 @@ func main() {
 			break
 		}
 		if err != nil {
+			verbose(opts.Verbose, err)
 			output(UNKNOWN, "Failed to fetch time series.")
 		}
-		value = evalute(opts.Evalution, resp.ValueType.String(), resp.Points)
+		verbose(opts.Verbose, resp.Metric)
+		verbose(opts.Verbose, resp.Resource)
+		value = evaluate(opts.Evalution, resp.ValueType.String(), resp.Points)
+		verbose(opts.Verbose, value)
 		length = len(resp.Points)
 	}
 
@@ -83,13 +92,13 @@ func main() {
 	switch { 
 	case (opts.Critical > 0.0 && value >= opts.Critical) :
 		status  = CRITICAL
-		message = fmt.Sprintf("evalute %s value %d over %d", opts.Evalution, int(value), int(opts.Critical))
+		message = fmt.Sprintf("%s value: %d over %d", opts.Evalution, int(value), int(opts.Critical))
 	case (opts.Warning > 0.0 && value >= opts.Warning) :
 		status  = WARNING
-		message = fmt.Sprintf("evalute %s value %d over %d", opts.Evalution, int(value), int(opts.Warning))
+		message = fmt.Sprintf("%s value: %d over %d", opts.Evalution, int(value), int(opts.Warning))
 	default :
 		status  = OK
-		message = fmt.Sprintf("evalute %s value %d successful", opts.Evalution, int(value))
+		message = fmt.Sprintf("%s value: %d ", opts.Evalution, int(value))
 	}
 	paformace := fmt.Sprintf("|value=%f;%d;%d", value, int(opts.Warning), int(opts.Critical))
 	output(status, message + paformace)
@@ -114,9 +123,9 @@ func output(status int, message string)  {
 	os.Exit(status)
 }
 
-func evalute(evaluteType string, valueType string, points []*monitoringpb.Point) float64 {
+func evaluate(evaluateType string, valueType string, points []*monitoringpb.Point) float64 {
 	var ret float64
-	switch evaluteType {
+	switch evaluateType {
 	case "LAST" :
 		ret = getFloatValue(valueType, points[0].GetValue())
 	case "SUM" : 
