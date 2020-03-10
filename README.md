@@ -42,4 +42,3 @@ https://cloud.google.com/monitoring/api/metrics?hl=ja
 
 # TODO
 [] append evalution type "MEAN".  
-[] append "filter" option.  
