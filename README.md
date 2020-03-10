@@ -1,5 +1,5 @@
 # check-stackdriver-go
-Nagios Plugin monitoring GCP stack driver metric.
+Nagios Plugin for GCP StackDriver metric monitoring.
 
 ## Build
 Build on linux
@@ -38,7 +38,11 @@ option|long option|required|discription
 -c|--critical|flase|Critical threshold.
 
 # Stack driver metric list
-https://cloud.google.com/monitoring/api/metrics?hl=ja
+https://pkg.go.dev/google.golang.org/api/monitoring/v3?tab=doc
 
-# TODO
-[] append evalution type "MEAN".  
+
+# Trademark
+Nagios, the Nagios logo, and Nagios graphics are the servicemarks, trademarks, or registered trademarks owned by Nagios Enterprises. All other servicemarks and trademarks are the property of their respective owner. 
+
+# License
+MIT
