@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	//"strconv"
 	"time"
 
 	monitoring "cloud.google.com/go/monitoring/apiv3"

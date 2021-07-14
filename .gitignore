@@ -1,3 +1,5 @@
-DEVDOC.md
+LOCAL.md
+*.json
+
 check_stackdriver
 check_stackdriver.exe
