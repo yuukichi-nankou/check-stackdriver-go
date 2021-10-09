@@ -1,5 +1,13 @@
-LOCAL.md
+# IDE files
+/.idea/
+
+# conf files
 *.json
 
+# binary files
 check_stackdriver
 check_stackdriver.exe
+check-stackdriver-go
+
+# misc
+LOCAL.md

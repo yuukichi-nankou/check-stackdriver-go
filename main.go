@@ -3,15 +3,22 @@ package main
 import (
 	"fmt"
 	"os"
-
+	"sort"
 	"time"
 
 	monitoring "cloud.google.com/go/monitoring/apiv3"
 	googlepb "github.com/golang/protobuf/ptypes/timestamp"
-	flags "github.com/jessevdk/go-flags"
+	"github.com/jessevdk/go-flags"
 	"golang.org/x/net/context"
 	"google.golang.org/api/iterator"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
+)
+
+const (
+	OK = iota
+	WARNING
+	CRITICAL
+	UNKNOWN
 )
 
 type Options struct {
@@ -27,25 +34,40 @@ type Options struct {
 	Verbose   []bool  `short:"v" long:"verbose"   required:"false" description:"Verbose option." `
 }
 
+type CheckResult struct {
+	Status            int
+	ResourceID        string
+	ResourceFullName  string
+	ThresholdWarning  float64
+	ThresholdCritical float64
+	Metric            float64
+	Message           string
+}
+
 func main() {
-	// 引数解析処理
 	var opts Options
 	parser := flags.NewParser(&opts, flags.IgnoreUnknown)
 	_, err := parser.Parse()
 	if err != nil {
 		parser.WriteHelp(os.Stdout)
-		output(UNKNOWN, "Missing required arguments.")
+		fmt.Printf("UNKNOWN: Missing required arguments.")
+		os.Exit(UNKNOWN)
 	}
 	verbose(opts.Verbose, opts)
-	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", opts.Auth)
+	err = os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", opts.Auth)
+	if err != nil {
+		fmt.Printf("UNKNOWN: Missing required arguments.")
+		os.Exit(UNKNOWN)
+	}
 
 	ctx := context.Background()
 	c, err := monitoring.NewMetricClient(ctx)
 	if err != nil {
-		output(UNKNOWN, "GCP SDK Client request failed.")
+		fmt.Printf("UNKNOWN: GCP SDK Client request failed.")
+		os.Exit(UNKNOWN)
 	}
 
-	var filter string = fmt.Sprintf("metric.type = \"%s\" ", opts.Metric)
+	var filter = fmt.Sprintf("metric.type = \"%s\" ", opts.Metric)
 	if len(opts.Filter) != 0 {
 		filter += fmt.Sprintf("AND %s ", opts.Filter)
 	}
@@ -65,68 +87,124 @@ func main() {
 		},
 	}
 
-	var value float64
-	var length int
+	status := OK
+	resourceType := ""
+	var checkResults []CheckResult
+
 	it := c.ListTimeSeries(ctx, req)
 	for {
 		resp, err := it.Next()
+
 		if err == iterator.Done {
 			break
 		}
+
 		if err != nil {
 			verbose(opts.Verbose, err)
-			output(UNKNOWN, "Failed to fetch time series.")
+			fmt.Printf("UNKNOWN: Failed to fetch time series.")
+			os.Exit(UNKNOWN)
 		}
+
+		var value CheckResult
+
+		value.ThresholdWarning = opts.Warning
+		value.ThresholdCritical = opts.Critical
+		resourceType = resp.Resource.Type
+
 		verbose(opts.Verbose, resp.Metric)
 		verbose(opts.Verbose, resp.Resource)
-		value = evaluate(opts.Evalution, resp.ValueType.String(), resp.Points)
-		verbose(opts.Verbose, value)
-		length = len(resp.Points)
+
+		length := len(resp.Points)
+
+		if length == 0 {
+			status = UNKNOWN
+			value.Status = UNKNOWN
+			value.Message = "Time series is empty."
+			continue
+		}
+
+		value.Metric = evaluate(opts.Evalution, resp.ValueType.String(), resp.Points)
+		verbose(opts.Verbose, value.Metric)
+
+		labelsMap := resp.Resource.GetLabels()
+
+		value.ResourceID = labelsMap["instance_id"]
+		value.ResourceFullName = "Project=" + labelsMap["project_id"] + " Zone=" + labelsMap["zone"] + " ID=" + labelsMap["instance_id"]
+
+		if opts.Warning > 0.0 && value.Metric < opts.Warning {
+			value.Status = OK
+			value.Message = metric2string(value, opts)
+		}
+
+		if opts.Warning > 0.0 && value.Metric >= opts.Warning {
+			if status <= WARNING {
+				status = WARNING
+			}
+			value.Status = WARNING
+			value.Message = metric2string(value, opts)
+		}
+
+		if opts.Critical > 0.0 && value.Metric >= opts.Critical {
+			status = CRITICAL
+			value.Status = CRITICAL
+			value.Message = metric2string(value, opts)
+		}
+
+		checkResults = append(checkResults, value)
 	}
 
-	if length == 0 {
-		output(UNKNOWN, "Time series is empty.")
+	if status == OK {
+		performance := getPerformanceData(checkResults)
+		fmt.Printf("OK: All %d %s metrics less then tresholds\n%s", len(checkResults), resourceType, performance)
+	} else {
+		output(checkResults)
 	}
 
-	status := OK
-	message := ""
-	switch {
-	case (opts.Critical > 0.0 && value >= opts.Critical):
-		status = CRITICAL
-		message = fmt.Sprintf("%s value: %d over %d", opts.Evalution, int(value), int(opts.Critical))
-	case (opts.Warning > 0.0 && value >= opts.Warning):
-		status = WARNING
-		message = fmt.Sprintf("%s value: %d over %d", opts.Evalution, int(value), int(opts.Warning))
-	default:
-		status = OK
-		message = fmt.Sprintf("%s value: %d ", opts.Evalution, int(value))
-	}
-	paformace := fmt.Sprintf("|value=%f;%d;%d", value, int(opts.Warning), int(opts.Critical))
-	output(status, message+paformace)
+	os.Exit(status)
 }
 
-const (
-	OK = iota
-	WARNING
-	CRITICAL
-	UNKNOWN
-)
-
-func output(status int, message string) {
-	switch status {
-	case OK:
-		message = "OK - " + message
-	case WARNING:
-		message = "WARNING - " + message
-	case CRITICAL:
-		message = "CRITICAL - " + message
-	case UNKNOWN:
-		message = "UNKNOWN - " + message
-	default:
-		message = "UNKNOWN - " + message
+func getPerformanceData(data []CheckResult) string {
+	performance := "|"
+	for _, value := range data {
+		if value.Status == UNKNOWN {
+			performance += fmt.Sprintf("'%s'=U;%d;%d;0;0 ", value.ResourceID, int(value.ThresholdWarning), int(value.ThresholdCritical))
+		} else {
+			performance += fmt.Sprintf("'%s'=%f;%d;%d;0;0 ", value.ResourceID, value.Metric, int(value.ThresholdWarning), int(value.ThresholdCritical))
+		}
 	}
-	fmt.Println(message)
-	os.Exit(status)
+	return performance
+}
+
+func metric2string(data CheckResult, opts Options) string {
+	statusStr := ""
+	switch data.Status {
+	case OK:
+		statusStr = "OK"
+	case WARNING:
+		statusStr = "WARNING"
+	case CRITICAL:
+		statusStr = "CRITICAL"
+	case UNKNOWN:
+		statusStr = "UNKNOWN"
+	default:
+		statusStr = "UNKNOWN"
+	}
+	return fmt.Sprintf("%s: %s [warn=%d:crit=%d:datapoints=%d]\n", statusStr, data.ResourceFullName, int(opts.Warning), int(opts.Critical), int(data.Metric))
+}
+
+func output(results []CheckResult) {
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Status > results[j].Status
+	})
+
+	message := ""
+	for _, value := range results {
+		message += value.Message
+	}
+
+	performance := getPerformanceData(results)
+
+	fmt.Println(message + performance)
 }
 
 func evaluate(evaluateType string, valueType string, points []*monitoringpb.Point) float64 {
