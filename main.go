@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	monitoring "cloud.google.com/go/monitoring/apiv3"
+	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
 	googlepb "github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/jessevdk/go-flags"
 	"golang.org/x/net/context"
@@ -50,20 +50,20 @@ func main() {
 	_, err := parser.Parse()
 	if err != nil {
 		parser.WriteHelp(os.Stdout)
-		fmt.Printf("UNKNOWN: Missing required arguments.")
+		fmt.Printf("UNKNOWN: Missing required arguments. \n")
 		os.Exit(UNKNOWN)
 	}
 	verbose(opts.Verbose, opts)
 	err = os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", opts.Auth)
 	if err != nil {
-		fmt.Printf("UNKNOWN: Missing required arguments.")
+		fmt.Printf("UNKNOWN: Missing required arguments. \n")
 		os.Exit(UNKNOWN)
 	}
 
 	ctx := context.Background()
 	c, err := monitoring.NewMetricClient(ctx)
 	if err != nil {
-		fmt.Printf("UNKNOWN: GCP SDK Client request failed.")
+		fmt.Printf("UNKNOWN: GCP SDK Client request failed. \n")
 		os.Exit(UNKNOWN)
 	}
 
@@ -101,7 +101,7 @@ func main() {
 
 		if err != nil {
 			verbose(opts.Verbose, err)
-			fmt.Printf("UNKNOWN: Failed to fetch time series.")
+			fmt.Printf("UNKNOWN: Failed to fetch time series. \n")
 			os.Exit(UNKNOWN)
 		}
 
@@ -155,7 +155,7 @@ func main() {
 
 	if status == OK {
 		performance := getPerformanceData(checkResults)
-		fmt.Printf("OK: All %d %s metrics less then tresholds\n%s", len(checkResults), resourceType, performance)
+		fmt.Printf("OK: All %d %s metrics less then tresholds %s \n", len(checkResults), resourceType, performance)
 	} else {
 		output(checkResults)
 	}

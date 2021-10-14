@@ -5,8 +5,6 @@
 *.json
 
 # binary files
-check_stackdriver
-check_stackdriver.exe
 check-stackdriver-go
 
 # misc
